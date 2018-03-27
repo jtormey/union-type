@@ -258,4 +258,57 @@ describe('union type', function() {
       assert.deepEqual([x, y, z], [1, 2, 3]);
     });
   });
+  describe('createSerializer', () => {
+    var Box = Type({Zero: [], One: [Number], Two: [Number, Number]});
+    var Maybe = Type({Just: [T], Nothing: []});
+    var Either = Type({Left: [Error], Right: [Number]});
+    var serializer = Type.createSerializer({ Box: Box, Maybe: Maybe });
+    it('should be equivalent after a serialize / deserialize', () => {
+      var result = serializer.deserialize(serializer.serialize(Maybe.Just(5)));
+      assert.deepEqual(result, Maybe.Just(5));
+    });
+    describe('serialize', () => {
+      it('should work for a 0-argument constructor', () => {
+        var serialized = serializer.serialize(Box.Zero);
+        assert.deepEqual(serialized, { __type__: 'Box', __constructor__: 'Zero', values: [] });
+      });
+      it('should work for a 1-argument constructor', () => {
+        var serialized = serializer.serialize(Box.One(1));
+        assert.deepEqual(serialized, { __type__: 'Box', __constructor__: 'One', values: [1] });
+      });
+      it('should work for a 2-argument constructor', () => {
+        var serialized = serializer.serialize(Box.Two(1, 2));
+        assert.deepEqual(serialized, { __type__: 'Box', __constructor__: 'Two', values: [1, 2] });
+      });
+      it('should fail if the value is of unknown type', () => {
+        assert.throws(function () {
+          serializer.serialize(Either.Right(1));
+        }, /does not have a corresponding Type/);
+      });
+    });
+    describe('deserialize', () => {
+      it('should work for a 0-argument constructor', () => {
+        var deserialized = serializer.deserialize({ __type__: 'Box', __constructor__: 'Zero', values: [] });
+        assert.deepEqual(deserialized, Box.Zero);
+      });
+      it('should work for a 1-argument constructor', () => {
+        var deserialized = serializer.deserialize({ __type__: 'Box', __constructor__: 'One', values: [1] });
+        assert.deepEqual(deserialized, Box.One(1));
+      });
+      it('should work for a 2-argument constructor', () => {
+        var deserialized = serializer.deserialize({ __type__: 'Box', __constructor__: 'Two', values: [1, 2] });
+        assert.deepEqual(deserialized, Box.Two(1, 2));
+      });
+      it('should fail if the value is of unknown type', () => {
+        assert.throws(function () {
+          serializer.deserialize({ __type__: 'Either', __constructor__: 'Right', values: [1] });
+        }, /Either does not have a corresponding Type/);
+      });
+      it('should fail if the Type has an unknown constructor', () => {
+        assert.throws(function () {
+          serializer.deserialize({ __type__: 'Maybe', __constructor__: 'Only', values: [1] });
+        }, /does not have constructor Only/);
+      });
+    });
+  });
 });

@@ -156,4 +156,38 @@ Type.ListOf = function (T) {
   return compose(validate, List.List);
 };
 
+Type.createSerializer = function (types) {
+  var typesKeys = Object.keys(types);
+
+  function mapTypeToString (value) {
+    var i, T;
+    for (i = 0; i < typesKeys.length; i++) {
+      T = types[typesKeys[i]];
+      if (T.prototype.isPrototypeOf(value)) return typesKeys[i];
+    }
+    throw new TypeError('value does not have a corresponding Type in serializer');
+  }
+
+  return {
+    serialize: function (value) {
+      return {
+        __type__: mapTypeToString(value),
+        __constructor__: value._name,
+        values: value._keys.map(key => value[key])
+      };
+    },
+    deserialize: function (obj) {
+      var T = types[obj.__type__];
+      if (!T) {
+        throw new TypeError('type of serialized value ' + obj.__type__ + ' does not have a corresponding Type in serializer');
+      }
+      var Cons = T[obj.__constructor__];
+      if (!Cons) {
+        throw new TypeError('corresponding Type in serializer does not have constructor ' + obj.__constructor__);
+      }
+      return obj.values.length === 0 ? Cons : Cons.apply(null, obj.values);
+    }
+  };
+};
+
 module.exports = Type;
